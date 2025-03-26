@@ -18,17 +18,19 @@ python main.py --dgm {MODEL NAME} --data {DATA NAME}
 
 ### Reconstruction Samples (VQ-VAE)
 
-- Original Images
+- MNIST
 
-![Original Images](https://github.com/sungbinlim/Advanced-DGM-PyTorch/blob/main/imgs/MNIST_original_imgs.png)
+![mnist_original](https://github.com/sungbinlim/Advanced-DGM-PyTorch/blob/main/imgs/MNIST_original_imgs.png)
 
-![Original Images](https://github.com/sungbinlim/Advanced-DGM-PyTorch/blob/main/imgs/original_generated_images.png)
+![mnist_recon](https://github.com/sungbinlim/Advanced-DGM-PyTorch/blob/main/imgs/MNIST_recon_imgs.png)
 
-- Reconstructed Samples
+- CelebA
 
-![Original Images](https://github.com/sungbinlim/Advanced-DGM-PyTorch/blob/main/imgs/MNIST_recon_imgs.png)
 
-![Reconstructed Images](https://github.com/sungbinlim/Advanced-DGM-PyTorch/blob/main/imgs/reconstructed_generated_images.png)
+![celeba_original](https://github.com/sungbinlim/Advanced-DGM-PyTorch/blob/main/imgs/original_generated_images.png)
+
+![celeba_recon](https://github.com/sungbinlim/Advanced-DGM-PyTorch/blob/main/imgs/reconstructed_generated_images.png)
+
 
 ## License
 
