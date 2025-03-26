@@ -1,9 +1,9 @@
+import yaml
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
 import torchvision.utils as vision_utils
 from inspect import isfunction
-
 
 def cosine_beta_schedule(timesteps, s=0.008):
     steps = timesteps + 1
@@ -25,6 +25,12 @@ def num_to_groups(num, divisor):
         arr.append(remainder)
     return arr
 
+def load_config(config_file):
+    with open(config_file) as file:
+        config = yaml.safe_load(file)
+
+    return config
+
 def plot_batch(ax, batch, title=None, **kwargs):
     imgs = vision_utils.make_grid(batch, padding=2, normalize=True)
     imgs = np.moveaxis(imgs.numpy(), 0, -1)
@@ -39,5 +45,5 @@ def save_images(batch, title):
     fig = plt.figure(figsize=(row, col))
     ax = fig.add_subplot(111)
     plot_batch(ax, batch, title)
-    file_name = title + '_generated images.png'
+    file_name = title + '.png'
     plt.savefig(fname=file_name)

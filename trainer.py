@@ -1,17 +1,23 @@
-import numpy as np
 import torch
 import wandb
+import time
+import os
 from dgm.score import *
 from dgm.vqvae import *
 from tqdm.auto import tqdm
 
 # Training code
 def make_train_step(model, loss_fn, optimizer):
-    def train_step_fn(x, t, y):
+    def train_step_fn(x, y):
 
         model.train()
-        y_hat = model(x, t)
-        loss = loss_fn(y_hat, y)
+        result = model(x)
+        
+        if isinstance(result, dict): # VQ-VAE
+            loss = loss_fn(result['output'], y) + result['diff']
+        else: 
+            loss = loss_fn(result, y)
+        
         loss.backward()
         optimizer.step()
         optimizer.zero_grad()
@@ -21,11 +27,15 @@ def make_train_step(model, loss_fn, optimizer):
 
 # Evaluation code
 def make_valid_step(model, loss_fn):
-    def valid_sten_fn(x, t, y):
+    def valid_sten_fn(x, y):
 
         model.eval()
-        y_hat = model(x, t)
-        loss = loss_fn(y_hat, y)
+        result = model(x)
+
+        if isinstance(result, dict): # VQ-VAE
+            loss = loss_fn(result['output'], y) + result['diff']
+        else: 
+            loss = loss_fn(result, y)        
         
         return loss.item()
     return valid_sten_fn
@@ -52,8 +62,11 @@ class VQVAETrainer:
         self.model.train()
         train_step = make_train_step(self.model, self.loss_fn, self.optimizer)
         
-        for x_minibatch in tqdm(self.train_loader, desc='training loop', total=len(self.train_loader)):
-            x_minibatch = x_minibatch[0].to(self.device) # CelebA
+        for batch in tqdm(self.train_loader, desc='training loop', total=len(self.train_loader)):
+            if isinstance(batch, list):
+                x_minibatch = batch[0].to(self.device)
+            else:
+                x_minibatch = batch.to(self.device)
             y_minibatch = x_minibatch
             loss = train_step(x_minibatch, y_minibatch)
 
@@ -63,8 +76,11 @@ class VQVAETrainer:
         self.model.eval()
         valid_step = make_valid_step(self.model, self.loss_fn)
 
-        for x_minibatch in self.val_loader:
-            x_minibatch = x_minibatch[0].to(self.device)
+        for batch in self.val_loader:
+            if isinstance(batch, list):
+                x_minibatch = batch[0].to(self.device)
+            else:
+                x_minibatch = batch.to(self.device)
             y_minibatch = x_minibatch
             loss = valid_step(x_minibatch, y_minibatch)
 
@@ -75,11 +91,14 @@ class VQVAETrainer:
         print("Start Training...")
         for epoch in range(epochs):
             self.train(epoch)
-            self.validate(epoch)
-        
+            
+            if self.val_loader is not None:
+                self.validate(epoch)
+
             if (self.model_path is not None) and ((epoch+1) % 10 == 0):
-                file_name = [self.model_path, 'vqvae', str(epoch), '.pth']
-                file_name = '_'.join(file_name) 
+                identifier = str(time.time())[6:10] + str(epoch) + 'pth'
+                file_name = [self.model_path, identifier]
+                file_name = os.path.join(*file_name)
                 torch.save(self.model.state_dict(), file_name)
                 print("Model saved at epoch {}.".format(epoch+1))
         print("Finished Training!")

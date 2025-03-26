@@ -21,12 +21,14 @@ class VQVAE(nn.Module):
         self.decoder = Decoder(decoder_dims)
 
     def forward(self, x):
+        if x.dim() == 3:
+            x = x.unsqueeze(1)
         z = self.encoder(x)
         z = self.quantize_conv(z).transpose(1, 3)
         z, diff, embed_ind = self.quantize(z)
         x_recon = self.decoder(z.permute(0, 3, 1, 2))
 
-        return x_recon, diff, embed_ind
+        return {'output': x_recon, 'diff': diff, 'verbose': embed_ind}
     
     def extract_decoder_dims(self, encoder_dims, embed_dim, in_channels):
         decoder_dims = copy(encoder_dims)
@@ -66,7 +68,7 @@ class Encoder(nn.Module):
         self.dims = [dim, *map(lambda m: dim * m, dim_mults)]
         in_out = list(zip(self.dims[:-1], self.dims[1:]))
 
-        block_klass = partial(ResnetBlock, groups=resnet_block_groups)
+        block_class = partial(ResnetBlock, groups=resnet_block_groups)
         num_resolutions = len(in_out)
         self.blocks = nn.ModuleList([])
 
@@ -76,8 +78,8 @@ class Encoder(nn.Module):
             self.blocks.append(
                 nn.ModuleList(
                     [
-                        block_klass(dim_in, dim_in, time_emb_dim=None),
-                        block_klass(dim_in, dim_in, time_emb_dim=None),
+                        block_class(dim_in, dim_in, time_emb_dim=None),
+                        block_class(dim_in, dim_in, time_emb_dim=None),
                         Residual(PreNorm(dim_in, LinearAttention(dim_in))),
                         Downsample(dim_in, dim_out)
                         if not is_last
@@ -107,7 +109,7 @@ class Decoder(nn.Module):
         super().__init__()
 
         in_out = list(zip(dims[:-1], dims[1:]))
-        block_klass = partial(ResnetBlock, groups=resnet_block_groups)
+        block_class = partial(ResnetBlock, groups=resnet_block_groups)
         num_resolutions = len(in_out)
         self.blocks = nn.ModuleList([])
 
@@ -117,8 +119,8 @@ class Decoder(nn.Module):
             self.blocks.append(
                 nn.ModuleList(
                     [
-                        block_klass(dim_in, dim_in, time_emb_dim=None),
-                        block_klass(dim_in, dim_in, time_emb_dim=None),
+                        block_class(dim_in, dim_in, time_emb_dim=None),
+                        block_class(dim_in, dim_in, time_emb_dim=None),
                         Residual(PreNorm(dim_in, LinearAttention(dim_in))),
                         Upsample(dim_in, dim_out)
                         if not is_last

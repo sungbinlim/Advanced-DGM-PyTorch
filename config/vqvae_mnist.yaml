@@ -1,0 +1,15 @@
+path:
+  data_root: 
+  model_path: 
+config:
+  Data: 'MNIST'
+  DGM: 'VQ-VAE'
+  Resolution: 28
+  in_Channel: 1
+  init_Channel: 4
+  Channel_mults: [1, 2]
+  Batch size: 512
+  Learning rate: 0.001
+  Epochs: 50
+  Device:
+  Time steps: None

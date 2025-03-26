@@ -1,5 +1,6 @@
 import os
 import numpy as np
+import torchvision.datasets as datasets
 from torch.utils import data
 from torchvision import transforms
 from PIL import Image
@@ -23,16 +24,57 @@ class ImageFolder(data.Dataset):
             image = self.transform(image)
         return image    
 
-def get_loader(image_path, image_size, batch_size, num_workers=2):
+def get_loader(train_valid_split=None, num_workers=2, **setting):
     """Create and return Dataloader."""
-    
+    config = setting['config']
+    image_path = setting['path']['data_root']
+    data_loader = None
+    image_size = (config['Resolution'], config['Resolution'])
     transform = basic_transform(image_size)
+
+    if config['Data'] in ['MNIST', 'CIFAR10']:
+        train_dataset = datasets.__dict__[config['Data']](root=image_path, 
+                                                    train=True, 
+                                                    download=True, 
+                                                    transform=transform)
+        valid_dataset = datasets.__dict__[config['Data']](root=image_path,
+                                                    train=False,
+                                                    download=True,
+                                                    transform=transform)
+        train_loader = data.DataLoader(dataset=train_dataset,
+                                       batch_size=config['Batch size'],
+                                       shuffle=True,
+                                       num_workers=num_workers)
+        valid_loader = data.DataLoader(dataset=valid_dataset,
+                                       batch_size=config['Batch size'],
+                                       shuffle=False,
+                                       num_workers=num_workers)
+        data_loader = {'train': train_loader, 'valid': valid_loader}
+
+    elif config['Data'] in ['CelebA', 'AFHQ']:
+        dataset = ImageFolder(image_path, transform)
     
-    dataset = ImageFolder(image_path, transform)
-    data_loader = data.DataLoader(dataset=dataset,
-                                  batch_size=batch_size,
-                                  shuffle=True,
-                                  num_workers=num_workers)
+        if (train_valid_split is None) and (data_loader is None):
+            train_loader = data.DataLoader(dataset=dataset,
+                                    batch_size=config['Batch size'],
+                                    shuffle=True,
+                                    num_workers=num_workers)
+            valid_loader = None
+        else:
+            train_size = int(train_valid_split * len(dataset))
+            valid_size = len(dataset) - train_size
+            train_dataset, valid_dataset = data.random_split(dataset, [train_size, valid_size])
+            train_loader = data.DataLoader(dataset=train_dataset,
+                                    batch_size=config['Batch size'],
+                                    shuffle=True,
+                                    num_workers=num_workers)
+            valid_loader = data.DataLoader(dataset=valid_dataset,
+                                    batch_size=config['Batch size'],
+                                    shuffle=False,
+                                    num_workers=num_workers)
+        data_loader = {'train': train_loader, 'valid': valid_loader}
+    else:
+        raise ValueError(f"Dataset {config['Data']} is not supported.")
     return data_loader
 
 def basic_transform(image_size):

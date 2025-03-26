@@ -1,0 +1,15 @@
+path:
+  data_root: 
+  model_path: 
+config:
+  Data: 'CIFAR10'
+  DGM: 'VQ-VAE'
+  Resolution: 32
+  in_Channel: 3
+  init_Channel: 8
+  Channel_mults: [1, 2, 4, 8]
+  Batch size: 512
+  Learning rate: 0.001
+  Epochs: 200
+  Device:
+  Time steps: None
