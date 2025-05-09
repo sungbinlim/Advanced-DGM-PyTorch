@@ -89,9 +89,8 @@ def basic_transform(image_size):
 def reverse_transform():
     reverse_transform = transforms.Compose([
      transforms.Lambda(lambda t: (t + 1) / 2),
-     transforms.Lambda(lambda t: t.permute(1, 2, 0)), # CHW to HWC
+    #  transforms.Lambda(lambda t: t.permute(1, 2, 0)), # CHW to HWC
      transforms.Lambda(lambda t: t * 255.),
-     transforms.Lambda(lambda t: t.numpy().astype(np.uint8)),
-     transforms.ToPILImage(),
+     transforms.Lambda(lambda t: t.detach().numpy()),
     ])
     return reverse_transform

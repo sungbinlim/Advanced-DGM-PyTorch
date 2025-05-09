@@ -1,8 +1,9 @@
+import os, time, wandb
 import torch
-import wandb
-import time
-import os
-from dgm.score import *
+import torch.distributed as disit
+import torch.nn as nn
+import torch.multiprocessing as mp
+from dgm.flow import *
 from dgm.vqvae import *
 from tqdm.auto import tqdm
 
@@ -103,17 +104,41 @@ class VQVAETrainer:
                 print("Model saved at epoch {}.".format(epoch+1))
         print("Finished Training!")
 
-class DDPMTrainer:
-    def __init__(self, model, loss_fn , optimizer, train_loader, timesteps=1000, val_loader=None, device='cpu', model_path=None):
+class FlowTrainer:
+    def __init__(self, model, 
+                 loss_fn, 
+                 optimizer, 
+                 train_loader, 
+                 val_loader=None, 
+                 timesteps=1000, 
+                 device='cpu', 
+                 model_path=None):
+        
         self.model = model
         self.loss_fn = loss_fn
         self.optimizer = optimizer
         self.train_loader = train_loader
         self.val_loader = val_loader
+        self.timesteps = timesteps
         self.model_path = model_path
         self.device = device
-        self.timesteps = timesteps
+
+    def train(self, epoch):
+        self.model.train()
+        train_step = make_train_step(self.model, self.loss_fn, self.optimizer)
         
+        for batch in tqdm(self.train_loader, desc='training loop', total=len(self.train_loader)):
+            if isinstance(batch, list):
+                x_minibatch = batch[0].to(self.device)
+            else:
+                x_minibatch = batch.to(self.device)
+            batch_size = x_minibatch.shape[0]
+            t_minibatch = torch.randint(0, self.timesteps, (batch_size, ), device=self.device, dtype=torch.long)
+            y_minibatch = x_minibatch
+            loss = train_step(x_minibatch, y_minibatch)
+
+        wandb.log({'Training loss': loss}, step=epoch)
+
     def train(self, epoch):
         self.model.train()
         train_step = make_train_step(self.model, self.loss_fn, self.optimizer)

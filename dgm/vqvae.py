@@ -1,34 +1,73 @@
 import torch
 import torch.nn as nn
+import lightning as pl
 from torch.nn import functional as F
 from .layers import ResnetBlock, Residual, PreNorm, LinearAttention, Upsample, Downsample
 from functools import partial
 from util import default
 from copy import copy
 
-class VQVAE(nn.Module):
+class VQVAE(pl.LightningModule):
     def __init__(
-        self, dim, dim_mults=(1, 2, 4, 8),
+        self, dim, encoder, decoder, quantize, dim_mults=(1, 2, 4, 8),
         in_channel=3, 
         embed_dim=64, # dimension of latent vector: d
         n_embed=512, # number of embedding vectors: K
+        loss_fn=None,
+        optimizer=None,
+        lr=1e-3
     ):
         super().__init__()
-        self.encoder = Encoder(dim, dim_mults, in_channel)
+        self.encoder = encoder(dim, dim_mults, in_channel)
         decoder_dims, encoder_last_dim = self.extract_decoder_dims(self.encoder.dims, embed_dim, in_channel)
         self.quantize_conv = nn.Conv2d(encoder_last_dim, embed_dim, 1)
-        self.quantize = Quantize(embed_dim, n_embed)
-        self.decoder = Decoder(decoder_dims)
+        self.quantize = quantize(embed_dim, n_embed)
+        self.decoder = decoder(decoder_dims)
+        self.loss_fn = loss_fn if loss_fn else F.mse_loss
+        self.optimizer = optimizer if optimizer else torch.optim.Adam
+        self.lr = lr
 
-    def forward(self, x):
+    def training_step(self, batch, batch_idx):
+        
+        if isinstance(batch, list):
+            x = batch[0]
+        else:
+            x = batch    
+
         if x.dim() == 3:
             x = x.unsqueeze(1)
         z = self.encoder(x)
         z = self.quantize_conv(z).transpose(1, 3)
-        z, diff, embed_ind = self.quantize(z)
+        z, diff, _ = self.quantize(z)
         x_recon = self.decoder(z.permute(0, 3, 1, 2))
+        recon_loss = self.loss_fn(x_recon, x)
+        loss = recon_loss + diff
+        
+        self.log("train/loss", recon_loss, prog_bar=True, sync_dist=True)
+        self.log("train/embed_loss", diff, sync_dist=True)
 
-        return {'output': x_recon, 'diff': diff, 'verbose': embed_ind}
+        return loss
+
+    def validation_step(self, batch, batch_idx):
+        
+        if isinstance(batch, list):
+            x = batch[0]
+        else:
+            x = batch
+
+        if x.dim() == 3:
+            x = x.unsqueeze(1)
+        z = self.encoder(x)
+        z = self.quantize_conv(z).transpose(1, 3)
+        z, diff, _ = self.quantize(z)
+        x_recon = self.decoder(z.permute(0, 3, 1, 2))
+        val_loss = self.loss_fn(x_recon, x)
+        self.log("val/recon_loss", val_loss, prog_bar=True, sync_dist=True)
+        self.log('val/embed_loss', diff, sync_dist=True)
+
+    def configure_optimizers(self):
+        optimizer = self.optimizer(self.parameters(), lr=self.lr)
+        return optimizer
     
     def extract_decoder_dims(self, encoder_dims, embed_dim, in_channels):
         decoder_dims = copy(encoder_dims)
@@ -39,6 +78,15 @@ class VQVAE(nn.Module):
         decoder_dims.append(in_channels)
 
         return decoder_dims, encoder_last_dim
+    
+    def forward(self, x):
+        if x.dim() == 3:
+            x = x.unsqueeze(1)
+        z = self.encoder(x)
+        z = self.quantize_conv(z).transpose(1, 3)
+        z = self.quantize(z)[0]
+        x_recon = self.decoder(z.permute(0, 3, 1, 2))
+        return x_recon
 
 class Encoder(nn.Module):
     """
