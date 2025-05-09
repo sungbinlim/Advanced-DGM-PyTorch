@@ -26,11 +26,15 @@ python main.py --dgm {MODEL NAME} --data {DATA NAME}
 
 - CelebA
 
-
 ![celeba_original](https://github.com/sungbinlim/Advanced-DGM-PyTorch/blob/main/imgs/original_generated_images.png)
 
 ![celeba_recon](https://github.com/sungbinlim/Advanced-DGM-PyTorch/blob/main/imgs/reconstructed_generated_images.png)
 
+- AFHQ
+
+![afhq_original](https://github.com/sungbinlim/Advanced-DGM-PyTorch/blob/main/imgs/AFHQ_original_imgs.png)
+
+![afhq_recon](https://github.com/sungbinlim/Advanced-DGM-PyTorch/blob/main/imgs/AFHQ_original_imgs.png)
 
 ## License
 
